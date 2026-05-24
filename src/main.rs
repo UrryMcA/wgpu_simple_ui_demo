@@ -3,7 +3,7 @@ mod bmfont;
 mod texture_loader_adapter;
 
 use anyhow::Result;
-use wgpu_simple_ui::{DefaultPrimitives, UiRenderer, common::types::{Alignment, EdgeInsets, Size, UColor}, outline_rect::OutlineRect, panel::Panel, *};
+use wgpu_simple_ui::{DefaultPrimitives, UiRenderer, canvas::{Canvas, CanvasItem}, canvas_button::CanvasButton, common::types::{Alignment, BackgroundFit, EdgeInsets, Rect, Size, UColor}, icon_button::IconButton, outline_rect::OutlineRect, panel::Panel, *};
 use wgpu_simple_ui_winit::window_event_to_ui_event;
 use std::sync::Arc;
 use winit::{
@@ -586,17 +586,16 @@ fn build_test_ui() -> wgpu_simple_ui::ui::Container {
         .add_child(Box::new(footer))
 }
 
-
 fn build_test_ui_bg(bg_id: u64, icon_id: u64) -> wgpu_simple_ui::ui::Container {
-    use wgpu_simple_ui::ui::{Button, Label, Container, icon_button::IconButton};
-    use wgpu_simple_ui::panel::Panel;
-    use wgpu_simple_ui::common::types::{BackgroundFit, EdgeInsets, Size, UColor, Alignment};
 
     // 📌 Заголовки секций
     let sec1_label = Label::new("1️⃣ Solid Baseline (Цветной фон)").font_size(16.0).color(UColor::new(0.7, 0.8, 1.0, 1.0)).margin(EdgeInsets::all(5.0));
     let sec2_label = Label::new("2️⃣ BackgroundFit (Растяжение, Черепица, Cover)").font_size(16.0).color(UColor::new(0.7, 0.8, 1.0, 1.0)).margin(EdgeInsets::all(5.0));
     let sec3_label = Label::new("3️⃣ Transparent PNG Overlay (Цвет + PNG)").font_size(16.0).color(UColor::new(0.7, 0.8, 1.0, 1.0)).margin(EdgeInsets::all(5.0));
     let sec4_label = Label::new("4️⃣ IconButtons (С оверлеем и без)").font_size(16.0).color(UColor::new(0.7, 0.8, 1.0, 1.0)).margin(EdgeInsets::all(5.0));
+    
+    // Новый заголовок для секции с Canvas
+    let sec5_label = Label::new("5️⃣ Custom Canvas Background (Градиент + Иконка)").font_size(16.0).color(UColor::new(0.7, 0.8, 1.0, 1.0)).margin(EdgeInsets::all(5.0));
 
     // ================= 1️⃣ SOLID BASELINE =================
     let solid_btn = Button::new("Solid Button")
@@ -637,13 +636,11 @@ fn build_test_ui_bg(bg_id: u64, icon_id: u64) -> wgpu_simple_ui::ui::Container {
         .add_child(Box::new(panel_cover));
 
     // ================= 3️⃣ TRANSPARENT OVERLAY =================
-    // Красный фон + PNG с 30% прозрачности
     let overlay_30 = Panel::new(Box::new(Label::new("Overlay 30%").font_size(14.0).color(UColor::new(1.0, 1.0, 1.0, 1.0))))
         .background(UColor::new(0.8, 0.1, 0.1, 1.0))
         .background_texture_overlay(bg_id, BackgroundFit::Stretch, Some(UColor::new(1.0, 1.0, 1.0, 0.3)))
         .corner_radius(12.0).padding(EdgeInsets::all(16.0));
 
-    // Зелёный фон + PNG с 70% прозрачности и Fit
     let overlay_70 = Panel::new(Box::new(Label::new("Overlay 70%").font_size(14.0).color(UColor::new(1.0, 1.0, 1.0, 1.0))))
         .background(UColor::new(0.1, 0.8, 0.1, 1.0))
         .background_texture_overlay(bg_id, BackgroundFit::Fit, Some(UColor::new(1.0, 1.0, 1.0, 0.7)))
@@ -675,6 +672,49 @@ fn build_test_ui_bg(bg_id: u64, icon_id: u64) -> wgpu_simple_ui::ui::Container {
         .add_child(Box::new(icon_plain))
         .add_child(Box::new(icon_textured));
 
+// ================= 5️⃣ CUSTOM CANVAS BACKGROUND =================
+ 
+  let button_width = 140.0;
+    let button_height = 90.0;
+
+    // Создаем контент кнопки: Иконка + Текст
+    let content_widget = Container::vertical()
+        .spacing(8.0)
+        .alignment(Alignment::Center)
+        .add_child(Box::new(Image::new(icon_id, 40.0, 40.0)))
+        .add_child(Box::new(Label::new("Custom BG").font_size(14.0).color(UColor::new(1.0, 1.0, 1.0, 1.0))));
+
+    // Создаем саму кнопку с кастомным фоном
+    let canvas_btn = CanvasButton::new(button_width, button_height)
+        // 1. Темно-синий фон
+        .add_canvas_item(CanvasItem::Rect {
+            rect: Rect::new(0.0, 0.0, button_width, button_height),
+            color: UColor::new(0.15, 0.2, 0.4, 1.0),
+        })
+        // 2. "Градиент" (светлая полоса сверху)
+        .add_canvas_item(CanvasItem::Rect {
+            rect: Rect::new(0.0, 0.0, button_width, button_height * 0.5),
+            color: UColor::new(0.3, 0.5, 0.9, 0.6), // Полупрозрачный
+        })
+        // 3. Скругленная рамка
+        .add_canvas_item(CanvasItem::OutlineRect {
+            rect: Rect::new(0.0, 0.0, button_width, button_height),
+            radius: 12.0,
+            thickness: 2.5,
+            color: UColor::new(0.8, 0.9, 1.0, 1.0),
+        })
+        // 4. Устанавливаем контент (иконка + текст)
+        .content(content_widget)
+        // 5. Обработчик клика
+        .on_click(|| {
+            println!("🎨 CanvasButton clicked! Custom gradient background works.");
+        });
+
+    let sec5_row = Container::horizontal()
+        .spacing(15.0)
+        .alignment(Alignment::Center)
+        .add_child(Box::new(canvas_btn));
+ 
     // ================= 📦 FINAL ASSEMBLY =================
     Container::vertical()
         .alignment(Alignment::Center)
@@ -688,4 +728,6 @@ fn build_test_ui_bg(bg_id: u64, icon_id: u64) -> wgpu_simple_ui::ui::Container {
         .add_child(Box::new(sec3_row))
         .add_child(Box::new(sec4_label))
         .add_child(Box::new(sec4_row))
+        .add_child(Box::new(sec5_label))
+        .add_child(Box::new(sec5_row))
 }
