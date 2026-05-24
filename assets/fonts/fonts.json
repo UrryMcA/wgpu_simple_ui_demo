@@ -1,0 +1,14 @@
+{
+  "fonts": [
+    {
+      "name": "default",
+      "fnt": "assets/fonts/arial.fnt",
+      "png": "assets/fonts/arial.png"
+    },
+    {
+      "name": "title",
+      "fnt": "assets/fonts/title.fnt",
+      "png": "assets/fonts/title.png"
+    }
+  ]
+}

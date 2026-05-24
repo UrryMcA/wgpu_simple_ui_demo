@@ -1,0 +1,16 @@
+{
+    
+    "configurations": [
+    {
+        "name": "(Windows) Запустить",
+        "type": "cppvsdbg",
+        "request": "launch",
+        "program": "${workspaceFolder}/target/debug/wgpu_simple_ui_demo.exe",
+        "args": [],
+        "stopAtEntry": false,
+        "cwd": "${fileDirname}",
+        "environment": [],
+        "console": "externalTerminal"
+    }
+    ]
+}
