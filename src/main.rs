@@ -3,7 +3,7 @@ mod bmfont;
 mod texture_loader_adapter;
 
 use anyhow::Result;
-use wgpu_simple_ui::{DefaultPrimitives, UiRenderer, common::types::{EdgeInsets, Size, UColor}, *};
+use wgpu_simple_ui::{DefaultPrimitives, UiRenderer, common::types::{Alignment, EdgeInsets, Size, UColor}, outline_rect::OutlineRect, panel::Panel, *};
 use wgpu_simple_ui_winit::window_event_to_ui_event;
 use std::sync::Arc;
 use winit::{
@@ -120,6 +120,9 @@ impl App {
                 renderer.resize(new_size.width, new_size.height);
                 renderer.ui_manager().layout(Size::new(new_size.width as f32, new_size.height as f32));
                  */
+            if let Some(renderer) = self.ui_renderer.as_mut() {
+                renderer.resize(new_size.width, new_size.height);
+            }
             }
         }
     }
@@ -239,19 +242,20 @@ fn main() -> Result<()> {
 }
 
 
-fn build_test_ui() -> wgpu_simple_ui::ui::Container {
+fn build_test_ui2() -> wgpu_simple_ui::ui::Container {
     let button = Button::new("Click me!")
-        .padding(EdgeInsets::all(12.0))
-        .margin(EdgeInsets::all(10.0))
+        .padding(EdgeInsets::all(16.0))
+        .margin(EdgeInsets::all(1.0))
         .color(UColor::new(0.2, 0.5, 0.8, 1.0))
-        .corner_radius(6.0)
+        .corner_radius(16.0)
         .on_click(|| {
             println!("Button clicked!");
         });
 
     let label = Label::new("Hello from wgpu UI")
-        .font_size(24.0)
-        .color(UColor::new(1.0, 1.0, 1.0, 1.0))
+//    let label = Label::new("E")
+        .font_size(42.0)
+        .color(UColor::new(0.2, 1.0, 1.0, 1.0))
         .margin(EdgeInsets::all(8.0));
 
     Container::vertical()
@@ -261,4 +265,73 @@ fn build_test_ui() -> wgpu_simple_ui::ui::Container {
         .add_child(Box::new(button))
 }
 
-        
+fn build_test_ui() -> wgpu_simple_ui::ui::Container {
+    let button = Button::new("Click me!")
+        .padding(EdgeInsets::all(16.0))
+        .margin(EdgeInsets::all(10.0))
+        .color(UColor::new(0.2, 0.5, 0.8, 1.0))
+        .corner_radius(16.0)
+        .on_click(|| {
+            println!("Button clicked!");
+        });
+
+    let label = Label::new("Hello from wgpu UI")
+        .font_size(42.0)
+        .color(UColor::new(0.2, 1.0, 1.0, 1.0))
+        .margin(EdgeInsets::all(8.0));
+
+    // Новый виджет: контур скруглённого прямоугольника
+    let outline_rect = OutlineRect::new(200.0, 100.0)
+        .corner_radius(20.0)
+        .thickness(4.0)
+        .color(UColor::new(1.0, 0.8, 0.0, 1.0)) // оранжевый
+        .margin(EdgeInsets::all(20.0));
+
+    // Ещё один outline для демонстрации
+    let outline_rect2 = OutlineRect::new(150.0, 80.0)
+        .corner_radius(12.0)
+        .thickness(3.0)
+        .color(UColor::new(0.0, 1.0, 0.5, 1.0)) // зелёный
+        .margin(EdgeInsets::all(15.0));
+
+    use wgpu_simple_ui::ui::canvas::{Canvas, CanvasItem};
+    use wgpu_simple_ui::common::types::{Rect, Line, UColor};
+
+    let mut canvas = Canvas::new(800.0, 300.0)
+        .margin(EdgeInsets::all(20.0))
+        .on_click(|p| println!("Clicked at: {:?}", p));
+
+    // Рамка графика
+    canvas.push_item(CanvasItem::OutlineRect {
+        rect: Rect::new(0.0, 0.0, 800.0, 300.0),
+        radius: 8.0,
+        thickness: 2.0,
+        color: UColor::new(0.5, 0.5, 0.5, 1.0),
+    });
+
+    // 500 столбиков гистограммы
+    for i in 0..500 {
+        let x = i as f32 * 1.5 + 10.0;
+        let h = ((i as f32 * 0.05).sin() * 0.5 + 0.5) * 250.0;
+        canvas.push_item(CanvasItem::Rect {
+            rect: Rect::new(x, 300.0 - h, 1.2, h),
+            color: UColor::new(0.2, 0.6, 1.0, 1.0),
+        });
+    }
+        // Диагональная линия
+    canvas.push_item(CanvasItem::Line {
+        line: Line::new(0.0, 0.0, 800.0, 300.0, 1.5),
+        color: UColor::new(1.0, 0.3, 0.3, 1.0),
+    });
+
+
+    wgpu_simple_ui::ui::Container::vertical()
+        .alignment(wgpu_simple_ui::common::types::Alignment::Center)
+        .spacing(20.0)
+        .add_child(Box::new(label))
+        .add_child(Box::new(button))
+        .add_child(Box::new(outline_rect))
+        .add_child(Box::new(outline_rect2))
+         .add_child(Box::new(canvas))
+}        
+
