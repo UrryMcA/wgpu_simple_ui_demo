@@ -2268,6 +2268,15 @@ dependencies = [
  "serde_json",
  "wgpu",
  "wgpu_simple_ui",
+ "wgpu_simple_ui_winit",
+ "winit",
+]
+
+[[package]]
+name = "wgpu_simple_ui_winit"
+version = "0.1.0"
+dependencies = [
+ "wgpu_simple_ui",
  "winit",
 ]
 

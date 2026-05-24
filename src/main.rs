@@ -4,6 +4,7 @@ mod texture_loader_adapter;
 
 use anyhow::Result;
 use wgpu_simple_ui::{DefaultPrimitives, UiRenderer, common::types::{EdgeInsets, Size, UColor}, *};
+use wgpu_simple_ui_winit::window_event_to_ui_event;
 use std::sync::Arc;
 use winit::{
     event::*,
@@ -203,6 +204,16 @@ impl ApplicationHandler for App {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {
+
+        let renderer: &mut UiRenderer = self.ui_renderer.as_mut().unwrap();
+        let mut tr_event = window_event_to_ui_event(&event);
+        match tr_event {
+            Some(value) =>{
+                renderer.ui_manager().process_event(&value);
+            },
+            None => {},
+        }
+
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::RedrawRequested => {
