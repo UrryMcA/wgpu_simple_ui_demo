@@ -499,11 +499,13 @@ fn build_test_ui(bg_texture_id: u64, icon_texture_id: u64) -> impl Widget {
         .padding(EdgeInsets::all(16.0))
         .on_click(|| println!("Top icon with image bg"));
 
+    let black_color = UColor::new(0.0, 0.0, 0.0, 1.0);
+
     // 9.4 Текст сверху, иконка снизу
     let bottom_icon_img = Container::vertical()
         .spacing(8.0)
         .alignment(Alignment::Center)
-        .add_child(Box::new(Label::new("Icon bottom").font_size(14.0).color(white)))
+        .add_child(Box::new(Label::new("Icon bottom").font_size(14.0).color(black_color)))
         .add_child(Box::new(Image::new(icon_texture_id, 32.0, 32.0)));
 
     let btn_bottom_icon_img = Button::new(bottom_icon_img)
@@ -534,7 +536,7 @@ fn build_test_ui(bg_texture_id: u64, icon_texture_id: u64) -> impl Widget {
     // ========== 10. Комбинированный фон: цвет + полупрозрачное изображение + иконка и текст ==========
     let composite_label = Label::new("🎨 Composite: Color + PNG Overlay + Icon+Text")
         .font_size(16.0)
-        .color(UColor::new(0.8, 0.9, 1.0, 1.0))
+        .color(UColor::new(0.0, 0.0, 0.0, 1.0))
         .margin(EdgeInsets::all(10.0));
 
     // Содержимое: иконка + текст (горизонтально)
@@ -545,7 +547,7 @@ fn build_test_ui(bg_texture_id: u64, icon_texture_id: u64) -> impl Widget {
         .add_child(Box::new(
             Label::new("Multi-layer")
                 .font_size(18.0)
-                .color(UColor::new(1.0, 1.0, 1.0, 1.0))
+                .color(UColor::new(0.0, 0.0, 0.0, 1.0))
         ));
 
     // Кнопка:
@@ -566,7 +568,7 @@ fn build_test_ui(bg_texture_id: u64, icon_texture_id: u64) -> impl Widget {
             .spacing(12.0)
             .alignment(Alignment::Center)
             .add_child(Box::new(Image::new(icon_texture_id, 32.0, 32.0)))
-            .add_child(Box::new(Label::new("Tile overlay").font_size(18.0).color(white)))
+            .add_child(Box::new(Label::new("Tile overlay").font_size(18.0).color(black_color)))
     )
     .solid_color(UColor::new(1.0,1.0, 1.0, 1.0))      //  фон
     .image(bg_texture_id, BackgroundFit::Tile { scale: 1.0 }, UColor::new(1.0, 1.0, 1.0, 0.5)) // тайлинг с полупрозрачностью
