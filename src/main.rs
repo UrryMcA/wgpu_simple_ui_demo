@@ -674,74 +674,49 @@ fn build_test_ui_bg(bg_id: u64, icon_id: u64) -> wgpu_simple_ui::ui::Container {
 
 // ================= 5️⃣ CUSTOM CANVAS BACKGROUND =================
 
-use wgpu_simple_ui::ui::{Button, Label, Container, Stack, Image};
-// Canvas импортируем из модуля, если он публичен, обычно это wgpu_simple_ui::ui::canvas::Canvas
-use wgpu_simple_ui::ui::canvas::Canvas; 
-use wgpu_simple_ui::ui::canvas::CanvasItem;
-use wgpu_simple_ui::common::types::{Rect, EdgeInsets, Size, UColor, Alignment, BackgroundFit};
+    let sec5_label = Label::new("5️⃣ CanvasButton + Layout").font_size(16.0).color(UColor::new(0.7, 0.8, 1.0, 1.0)).margin(EdgeInsets::all(5.0));
 
-// ... внутри build_test_ui_bg ...
-
-    // ================= 5️⃣ CUSTOM CANVAS BUTTON (ВИЗУАЛЬНАЯ ЧАСТЬ) =================
-    let button_width = 160.0;
+    let button_width = 180.0;
     let button_height = 100.0;
 
-    // 1. Создаем фон (Canvas с градиентом и рамкой)
-    let bg_canvas = Canvas::new(button_width, button_height)
-        .add_item(CanvasItem::Rect {
+    // 1. СОЗДАЕМ LAYOUT ДЛЯ КОНТЕНТА
+    // Вертикальный контейнер: Иконка сверху, Текст снизу
+    let content_layout = Container::vertical()
+        .spacing(8.0)                  // Отступ между иконкой и текстом
+        .alignment(Alignment::Center)  // Центрирование элементов внутри контейнера
+        .add_child(Box::new(Image::new(icon_id, 48.0, 48.0))) // Иконка 48x48
+        .add_child(Box::new(Label::new("Click Me").font_size(16.0).color(UColor::new(1.0, 1.0, 1.0, 1.0))));
+
+    // 2. СОЗДАЕМ КНОПКУ С CANVAS ФОНОМ
+    let canvas_btn = CanvasButton::new(button_width, button_height)
+        // Фон: Темно-синий
+        .add_canvas_item(CanvasItem::Rect {
             rect: Rect::new(0.0, 0.0, button_width, button_height),
-            color: UColor::new(0.1, 0.15, 0.3, 1.0), // Темный низ
+            color: UColor::new(0.1, 0.15, 0.3, 1.0),
         })
-        .add_item(CanvasItem::Rect {
-            rect: Rect::new(0.0, 0.0, button_width, button_height * 0.6),
-            color: UColor::new(0.2, 0.4, 0.9, 0.8), // Светлый верх (полупрозрачный для градиента)
+        // Градиент: Светлая полоса сверху (имитация градиента)
+        .add_canvas_item(CanvasItem::Rect {
+            rect: Rect::new(0.0, 0.0, button_width, button_height * 0.5),
+            color: UColor::new(0.2, 0.4, 0.9, 0.6),
         })
-        .add_item(CanvasItem::OutlineRect {
+        // Рамка: Белая, скругленная
+        .add_canvas_item(CanvasItem::OutlineRect {
             rect: Rect::new(0.0, 0.0, button_width, button_height),
             radius: 15.0,
             thickness: 2.0,
-            color: UColor::new(1.0, 1.0, 1.0, 1.0), // Белая рамка
+            color: UColor::new(1.0, 1.0, 1.0, 1.0),
+        })
+        // ПЕРЕДАЕМ LAYOUT ВНУТРЬ КНОПКИ
+        .content(content_layout)
+        .on_click(|| {
+            println!("✅ CanvasButton clicked! Layout is centered inside.");
         });
 
-    // 2. Создаем контент (Иконка + Текст вертикально)
-    let content_layout = Container::vertical()
-        .spacing(8.0)
-        .alignment(Alignment::Center)
-        .add_child(Box::new(Image::new(icon_id, 40.0, 40.0)))
-        .add_child(Box::new(Label::new("Click Me").font_size(14.0).color(UColor::new(1.0, 1.0, 1.0, 1.0))));
-
-    // 3. Складываем всё в Stack: Сначала фон, потом контент по центру
-    let mut button_stack = Stack::new(vec![
-        Box::new(bg_canvas), // Фон
-        Box::new(
-            Container::new()
-                .add_child(Box::new(content_layout))
-                .alignment(Alignment::Center) // Центрируем контент внутри стека
-        ),
-    ]);
-
-    // ВАЖНО: Так как Button::new() не принимает Stack, у нас два пути:
-    // ПУТЬ А: Использовать кастомный CanvasButton (если он исправлен и добавлен в либу).
-    // ПУТЬ Б: Использовать этот Stack как обычный виджет, а клик ловить в главном цикле.
-    
-    // Для демонстрации в этом примере мы просто добавим Stack в интерфейс.
-    // Чтобы он стал кликабельным как кнопка, вам нужно либо:
-    // 1. Раскомментировать использование CanvasButton (если файл src/ui/canvas_button.rs создан и верен).
-    // 2. Или обернуть этот stack в Container и добавить обработчик в main.rs в окне событий.
-    
-    // ДЕМОНСТРАЦИЯ ТОГО, ЧТО ЭТО ПРОСТО ВИДЖЕТ СЕЙЧАС:
     let sec5_row = Container::horizontal()
         .spacing(15.0)
         .alignment(Alignment::Center)
-        .add_child(Box::new(
-            // Если у вас есть рабочий CanvasButton, используйте его здесь:
-            // CanvasButton::new(button_width, button_height)
-            //     .add_canvas_item(...) ... .content(content_layout) ...
-            
-            // А пока мы кладем просто Stack. Он будет выглядеть как кнопка, но не будет иметь встроенного on_click.
-            // Для полноценной работы замените эту строку на создание CanvasButton, если вы исправили либу.
-            button_stack 
-        ));
+        .add_child(Box::new(canvas_btn));
+
 
     // ================= 📦 FINAL ASSEMBLY =================
     Container::vertical()
