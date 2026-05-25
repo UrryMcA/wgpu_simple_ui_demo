@@ -3,7 +3,9 @@ mod bmfont;
 mod texture_loader_adapter;
 
 use anyhow::Result;
-use wgpu_simple_ui::{DefaultPrimitives, UiRenderer, canvas::{Canvas, CanvasItem}, canvas_button::CanvasButton, common::types::{Alignment, BackgroundFit, EdgeInsets, Rect, Size, UColor}, icon_button::IconButton, outline_rect::OutlineRect, panel::Panel, *};
+use wgpu_simple_ui::{DefaultPrimitives, UiRenderer, 
+    common::types::{Alignment, BackgroundFit, EdgeInsets, Rect, Size, UColor}, 
+    widgets::{canvas::CanvasItem, *}, *};
 use wgpu_simple_ui_winit::window_event_to_ui_event;
 use std::sync::Arc;
 use winit::{
@@ -95,13 +97,14 @@ impl App {
         //let _texture_id = ui_renderer.load_texture("assets/icon.png", &texture_loader);
         // Загружаем текстуры
         let bg_id = ui_renderer.load_texture("assets/ui_bg.png", &texture_loader).unwrap_or(0);
+        let bg_id1 = ui_renderer.load_texture("assets/bg.png", &texture_loader).unwrap_or(0);
         let icon_id = ui_renderer.load_texture("assets/icon.png", &texture_loader).unwrap_or(0);
 
         // ===================================================================================
         // Строим дерево виджетов
         //let mut ui_widget = build_test_ui();
         // Строим дерево виджетов, передавая ID текстур
-        let mut ui_widget = build_test_ui_bg(bg_id, icon_id);
+        let mut ui_widget = build_test_ui(bg_id1, icon_id);
         
  
         let mut ui_manager = ui_renderer.ui_manager();
@@ -251,486 +254,400 @@ fn main() -> Result<()> {
 }
 
 
-fn build_test_ui2() -> wgpu_simple_ui::ui::Container {
-    let button = Button::new("Click me!")
-        .padding(EdgeInsets::all(16.0))
-        .margin(EdgeInsets::all(1.0))
-        .color(UColor::new(0.2, 0.5, 0.8, 1.0))
-        .corner_radius(16.0)
-        .on_click(|| {
-            println!("Button clicked!");
-        });
+/// Тестовый UI, демонстрирующий возможности нового универсального `Button`:
+/// - Сплошной цвет фона
+/// - Фоновое изображение с разными стратегиями `BackgroundFit` (Stretch, Tile, Cover)
+/// - Кастомный фон через `CanvasItem` (градиент, рамка, линии)
+/// - Произвольный layout внутри кнопки (иконка + текст вертикально/горизонтально)
+/// - Скругление углов, обводка, отступы, margin
+/// - Колбэк на клик
+/// Тестовый UI, демонстрирующий возможности нового универсального `Button`
+/// Тестовый UI, демонстрирующий возможности нового универсального `Button`
+fn build_test_ui(bg_texture_id: u64, icon_texture_id: u64) -> impl Widget {
+    use crate::common::types::{Rect, Line, UColor, EdgeInsets, Alignment, BackgroundFit, Size};
+    use crate::ui::widgets::{Container, Label, Image, Button};
 
-    let label = Label::new("Hello from wgpu UI")
-//    let label = Label::new("E")
-        .font_size(42.0)
-        .color(UColor::new(0.2, 1.0, 1.0, 1.0))
-        .margin(EdgeInsets::all(8.0));
+    // Белый цвет (замена UColor::white())
+    let white = UColor::new(1.0, 1.0, 1.0, 1.0);
 
-    Container::vertical()
-        .alignment(wgpu_simple_ui::common::types::Alignment::Center)
-        .spacing(20.0)
-        .add_child(Box::new(label))
-        .add_child(Box::new(button))
-}
+    // ========== 1. Твёрдый цвет ==========
+    let solid_button = Button::new(
+        Label::new("Solid Color")
+            .font_size(18.0)
+            .color(white)
+    )
+    .solid_color(UColor::new(0.2, 0.5, 0.8, 1.0))
+    .corner_radius(10.0)
+    .padding(EdgeInsets::all(16.0))
+    .margin(EdgeInsets::all(8.0))
+    .on_click(|| println!("✅ Solid button clicked"));
 
-fn build_test_ui_3() -> wgpu_simple_ui::ui::Container {
-    let button = Button::new("Click me!")
-        .padding(EdgeInsets::all(16.0))
-        .margin(EdgeInsets::all(10.0))
-        .color(UColor::new(0.2, 0.5, 0.8, 1.0))
-        .corner_radius(16.0)
-        .on_click(|| {
-            println!("Button clicked!");
-        });
+    // ========== 2. Фон: изображение (Stretch) ==========
+    let stretch_button = Button::new(
+        Label::new("Stretch")
+            .font_size(16.0)
+            .color(white)
+    )
+    .image(bg_texture_id, BackgroundFit::Stretch, white)
+    .corner_radius(12.0)
+    .padding(EdgeInsets::all(20.0))
+    .on_click(|| println!("✅ Stretch button clicked"));
 
-    let label = Label::new("Hello from wgpu UI")
-        .font_size(42.0)
-        .color(UColor::new(0.2, 1.0, 1.0, 1.0))
-        .margin(EdgeInsets::all(8.0));
+    // ========== 3. Фон: тайлинг (Tile) ==========
+    let tile_button = Button::new(
+        Label::new("Tile (scale=0.4)")
+            .font_size(16.0)
+            .color(UColor::new(1.0, 0.9, 0.2, 1.0))
+    )
+    .image(bg_texture_id, BackgroundFit::Tile { scale: 0.4 }, white)
+    .corner_radius(8.0)
+    .padding(EdgeInsets::all(16.0))
+    .on_click(|| println!("✅ Tile button clicked"));
 
-    // Новый виджет: контур скруглённого прямоугольника
-    let outline_rect = OutlineRect::new(200.0, 100.0)
-        .corner_radius(20.0)
-        .thickness(4.0)
-        .color(UColor::new(1.0, 0.8, 0.0, 1.0)) // оранжевый
-        .margin(EdgeInsets::all(20.0));
+    // ========== 4. Фон: Cover ==========
+    let cover_button = Button::new(
+        Label::new("Cover")
+            .font_size(16.0)
+            .color(white)
+    )
+    .image(bg_texture_id, BackgroundFit::Cover, UColor::new(1.0, 0.8, 0.5, 0.9))
+    .corner_radius(16.0)
+    .padding(EdgeInsets::all(16.0))
+    .on_click(|| println!("✅ Cover button clicked"));
 
-    // Ещё один outline для демонстрации
-    let outline_rect2 = OutlineRect::new(150.0, 80.0)
-        .corner_radius(12.0)
-        .thickness(3.0)
-        .color(UColor::new(0.0, 1.0, 0.5, 1.0)) // зелёный
-        .margin(EdgeInsets::all(15.0));
-
-    use wgpu_simple_ui::ui::canvas::{Canvas, CanvasItem};
-    use wgpu_simple_ui::common::types::{Rect, Line, UColor};
-
-    let mut canvas = Canvas::new(800.0, 300.0)
-        .margin(EdgeInsets::all(20.0))
-        .on_click(|p| println!("Clicked at: {:?}", p));
-
-    // Рамка графика
-    canvas.push_item(CanvasItem::OutlineRect {
-        rect: Rect::new(0.0, 0.0, 800.0, 300.0),
-        radius: 8.0,
-        thickness: 2.0,
-        color: UColor::new(0.5, 0.5, 0.5, 1.0),
-    });
-
-    // 500 столбиков гистограммы
-    for i in 0..500 {
-        let x = i as f32 * 1.5 + 10.0;
-        let h = ((i as f32 * 0.05).sin() * 0.5 + 0.5) * 250.0;
-        canvas.push_item(CanvasItem::Rect {
-            rect: Rect::new(x, 300.0 - h, 1.2, h),
-            color: UColor::new(0.2, 0.6, 1.0, 1.0),
-        });
-    }
-        // Диагональная линия
-    canvas.push_item(CanvasItem::Line {
-        line: Line::new(0.0, 0.0, 800.0, 300.0, 1.5),
-        color: UColor::new(1.0, 0.3, 0.3, 1.0),
-    });
-
-
-    wgpu_simple_ui::ui::Container::vertical()
-        .alignment(wgpu_simple_ui::common::types::Alignment::Center)
-        .spacing(20.0)
-        .add_child(Box::new(label))
-        .add_child(Box::new(button))
-        .add_child(Box::new(outline_rect))
-        .add_child(Box::new(outline_rect2))
-         .add_child(Box::new(canvas))
-}        
-
-fn build_test_ui() -> wgpu_simple_ui::ui::Container {
-    use wgpu_simple_ui::ui::{Button, Label, Container, canvas::{Canvas, CanvasItem}};
-    use wgpu_simple_ui::common::types::{Rect, Line, UColor, EdgeInsets, Alignment};
-    use wgpu_simple_ui::outline_rect::OutlineRect;
-    use wgpu_simple_ui::panel::Panel;
-
-    // === ЗАГОЛОВОК ===
-    let header = Label::new("🧪 UI Stress Test Suite")
-        .font_size(28.0)
-        .color(UColor::new(1.0, 0.9, 0.2, 1.0))
-        .margin(EdgeInsets::new(10.0, 10.0, 20.0, 10.0));
-
-    // === ГРУППА КНОПОК: Цветовые темы ===
-    let mut color_buttons = Container::horizontal()
-        .spacing(8.0)
-        .alignment(Alignment::Center);
-
-    let colors = [
-        ("🔴 Red", UColor::new(0.9, 0.2, 0.2, 1.0)),
-        ("🟢 Green", UColor::new(0.2, 0.8, 0.3, 1.0)),
-        ("🔵 Blue", UColor::new(0.2, 0.5, 0.9, 1.0)),
-        ("🟡 Yellow", UColor::new(0.95, 0.85, 0.1, 1.0)),
-        ("🟣 Purple", UColor::new(0.7, 0.3, 0.9, 1.0)),
-        ("⚪ White", UColor::new(0.95, 0.95, 0.95, 1.0)),
-        ("⚫ Black", UColor::new(0.1, 0.1, 0.15, 1.0)),
-        ("🟠 Orange", UColor::new(1.0, 0.5, 0.1, 1.0)),
+    // ========== 5. Кастомный Canvas-фон ==========
+    let canvas_width = 240.0;
+    let canvas_height = 100.0;
+    let canvas_items = vec![
+        CanvasItem::Rect {
+            rect: Rect::new(0.0, 0.0, canvas_width, canvas_height),
+            color: UColor::new(0.1, 0.2, 0.35, 1.0),
+        },
+        CanvasItem::Rect {
+            rect: Rect::new(0.0, 0.0, canvas_width, canvas_height * 0.5),
+            color: UColor::new(0.3, 0.6, 0.9, 0.7),
+        },
+        CanvasItem::Line {
+            line: Line::new(0.0, canvas_height * 0.25, canvas_width, canvas_height * 0.25, 1.5),
+            color: UColor::new(1.0, 1.0, 1.0, 0.6),
+        },
+        CanvasItem::OutlineRect {
+            rect: Rect::new(5.0, 5.0, canvas_width - 10.0, canvas_height - 10.0),
+            radius: 8.0,
+            thickness: 2.0,
+            color: white,
+        },
     ];
 
-    for (text, color) in colors {
-        let btn = Button::new(text)
-            .padding(EdgeInsets::all(12.0))
-            .color(color)
-            .corner_radius(8.0)
-            .on_click(move || println!("Clicked: {}", text));
-        // ✅ ВАЖНО: перезаписываем контейнер, т.к. add_child consumes self
-        color_buttons = color_buttons.add_child(Box::new(btn));
-    }
+    let canvas_button = Button::new(
+        Label::new("Canvas BG")
+            .font_size(18.0)
+            .color(white)
+    )
+    .canvas(canvas_items)
+    .corner_radius(10.0)
+    .padding(EdgeInsets::all(20.0))
+    .on_click(|| println!("✅ Canvas button clicked"));
 
-    // === ГРУППА КНОПОК: Размеры ===
-    let size_label = Label::new("📏 Sizes:")
-        .font_size(16.0)
-        .color(UColor::new(0.8, 0.8, 0.9, 1.0))
-        .margin(EdgeInsets::all(8.0));
-
-    let mut size_buttons = Container::horizontal().spacing(6.0).alignment(Alignment::Center);
-    for (label, padding, radius) in [
-        ("XS", 6.0, 4.0), ("S", 10.0, 6.0), ("M", 14.0, 8.0), 
-        ("L", 20.0, 12.0), ("XL", 28.0, 16.0),
-    ] {
-        let btn = Button::new(label)
-            .padding(EdgeInsets::all(padding))
-            .corner_radius(radius)
-            .color(UColor::new(0.3, 0.6, 0.8, 1.0))
-            .on_click(move || println!("Size {} clicked", label));
-        size_buttons = size_buttons.add_child(Box::new(btn));
-    }
-
-    // === ГРУППА КНОПОК: Стили границ ===
-    let style_label = Label::new("🎨 Border Styles:")
-        .font_size(16.0)
-        .color(UColor::new(0.8, 0.8, 0.9, 1.0))
-        .margin(EdgeInsets::all(8.0));
-
-    let mut style_buttons = Container::horizontal().spacing(8.0);
-    for (name, radius, outline) in [
-        ("Sharp", 0.0, false),
-        ("Round", 20.0, false),
-        ("Pill", 50.0, false),
-        ("Outlined", 8.0, true),
-        ("Thick", 12.0, true),
-    ] {
-        let mut btn = Button::new(name)
-            .padding(EdgeInsets::all(10.0))
-            .corner_radius(radius)
-            .color(if outline { UColor::new(0.15, 0.15, 0.25, 1.0) } else { UColor::new(0.4, 0.5, 0.7, 1.0) })
-            .on_click(move || println!("Style {} clicked", name));
-        
-        if outline {
-            btn = btn.border_color(UColor::new(0.9, 0.7, 0.3, 1.0))
-                     .border_thickness(if name == "Thick" { 3.0 } else { 1.5 });
-        }
-        style_buttons = style_buttons.add_child(Box::new(btn));
-    }
-
-    // === GRID КНОПОК: 5×4 матрица для теста батчинга ===
-    let grid_label = Label::new("🔢 Button Grid (5×4):")
-        .font_size(16.0)
-        .color(UColor::new(0.8, 0.8, 0.9, 1.0))
-        .margin(EdgeInsets::all(10.0));
-
-    let mut grid_container = Container::vertical().spacing(6.0);
-    for row in 0..2 {
-        let mut row_container = Container::horizontal().spacing(6.0);
-        for col in 0..8 {
-            let idx = row * 5 + col + 1;
-            let hue = (idx as f32 * 25.0) / 360.0;
-            // Fallback для from_hsv, если его ещё нет в types.rs
-            let btn_color = UColor::new(0.2 + hue * 0.6, 0.3 + hue * 0.4, 0.9 - hue * 0.3, 1.0);
-            let btn = Button::new(&format!("{:02}", idx))
-                .padding(EdgeInsets::all(10.0))
-                .corner_radius(6.0)
-                .color(btn_color)
-                .on_click(move || println!("Grid button #{} clicked", idx));
-            row_container = row_container.add_child(Box::new(btn));
-        }
-        grid_container = grid_container.add_child(Box::new(row_container));
-    }
-
-    // === OUTLINE RECTS ===
-    let outlines_label = Label::new("🔲 Outline Primitives:")
-        .font_size(16.0)
-        .color(UColor::new(0.8, 0.8, 0.9, 1.0))
-        .margin(EdgeInsets::all(10.0));
-
-    let mut outlines_row = Container::horizontal().spacing(15.0).alignment(Alignment::Center);
-    
-    let outline1 = OutlineRect::new(120.0, 60.0)
-        .corner_radius(0.0).thickness(2.0).color(UColor::new(1.0, 0.3, 0.3, 1.0))
-        .margin(EdgeInsets::new(10.0, 15.0, 10.0, 15.0));
-    let outline2 = OutlineRect::new(120.0, 60.0)
-        .corner_radius(12.0).thickness(3.0).color(UColor::new(0.3, 1.0, 0.5, 1.0))
-        .margin(EdgeInsets::all(10.0));
-    let outline3 = OutlineRect::new(120.0, 60.0)
-        .corner_radius(30.0).thickness(4.0).color(UColor::new(0.4, 0.6, 1.0, 1.0))
-        .margin(EdgeInsets::all(10.0));
-    let outline4 = OutlineRect::new(120.0, 60.0)
-        .corner_radius(60.0).thickness(2.5).color(UColor::new(0.9, 0.4, 1.0, 1.0))
-        .margin(EdgeInsets::all(10.0));
-
-    outlines_row = outlines_row.add_child(Box::new(outline1));
-    outlines_row = outlines_row.add_child(Box::new(outline2));
-    outlines_row = outlines_row.add_child(Box::new(outline3));
-    outlines_row = outlines_row.add_child(Box::new(outline4));
-
-    // === CANVAS ===
-    let canvas_label = Label::new("📊 Canvas Graphics:")
-        .font_size(16.0)
-        .color(UColor::new(0.8, 0.8, 0.9, 1.0))
-        .margin(EdgeInsets::all(10.0));
-
-    let mut canvas = Canvas::new(700.0, 100.0)
-        .margin(EdgeInsets::new(5.0, 10.0, 5.0, 10.0))
-        .on_click(|p| println!("Canvas clicked at {:?}", p));
-
-    for i in 0..35 {
-        let x = i as f32 * 20.0;
-        canvas.push_item(CanvasItem::Line { line: Line::new(x, 0.0, x, 100.0, 0.5), color: UColor::new(0.2, 0.2, 0.3, 0.3) });
-    }
-    for i in 0..10 {
-        let y = i as f32 * 20.0;
-        canvas.push_item(CanvasItem::Line { line: Line::new(0.0, y, 700.0, y, 0.5), color: UColor::new(0.2, 0.2, 0.3, 0.3) });
-    }
-
-    for i in 0..100 {
-        let x = 10.0 + i as f32 * 6.8;
-        let h = ((i as f32 * 0.15).sin() * 0.5 + 0.5) * 100.0 + 20.0;
-        let hue = i as f32 / 100.0;
-        canvas.push_item(CanvasItem::Rect {
-            rect: Rect::new(x, 200.0 - h, 5.5, h),
-            color: UColor::new(0.2 + hue * 0.6, 0.3, 0.9, 1.0),
-        });
-    }
-
-    let mut prev_point: Option<(f32, f32)> = None;
-    for i in 0..200 {
-        let x = 10.0 + i as f32 * 3.45;
-        let y = 100.0 + (i as f32 * 0.08).sin() * 70.0;
-        if let Some((px, py)) = prev_point {
-            canvas.push_item(CanvasItem::Line { line: Line::new(px, py, x, y, 2.0), color: UColor::new(1.0, 0.4, 0.6, 0.9) });
-        }
-        prev_point = Some((x, y));
-    }
-
-    canvas.push_item(CanvasItem::OutlineRect {
-        rect: Rect::new(0.0, 0.0, 700.0, 200.0),
-        radius: 10.0, thickness: 2.0,
-        color: UColor::new(0.7, 0.7, 0.85, 1.0),
-    });
-
-    // === PANEL ===
-    let panel_label = Label::new("📦 Nested Panel:")
-        .font_size(16.0)
-        .color(UColor::new(0.8, 0.8, 0.9, 1.0))
-        .margin(EdgeInsets::all(10.0));
-
-    let mut panel_content = Container::vertical().spacing(8.0);
-    for i in 1..=4 {
-        let btn = Button::new(&format!("Panel Button #{}", i))
-            .padding(EdgeInsets::all(8.0))
-            .corner_radius(6.0)
-            .color(UColor::new(0.25, 0.45, 0.75, 1.0))
-            .on_click(move || println!("Panel button {} clicked", i));
-        panel_content = panel_content.add_child(Box::new(btn));
-    }
-
-    // Примечание: используется обновлённый Panel из предыдущего ответа (.content())
-/*    let panel = Panel::new()
-        .padding(EdgeInsets::new(15.0, 20.0, 15.0, 20.0))
-        .corner_radius(12.0)
-        .color(UColor::new(0.12, 0.15, 0.22, 0.95))
-        .border_color(UColor::new(0.4, 0.5, 0.7, 1.0))
-        .border_thickness(1.5)
-        .content(Box::new(panel_content));
-    */
-    let panel_content = Container::vertical()
+    // ========== 6. Кнопка с произвольным сложным содержимым ==========
+    let complex_content = Container::vertical()
         .spacing(8.0)
-        .add_child(Box::new(Label::new("Panel Content").font_size(14.0).color(UColor::new(0.9, 0.9, 0.9, 1.0))));
+        .alignment(Alignment::Center)
+        .add_child(Box::new(Image::new(icon_texture_id, 48.0, 48.0)))
+        .add_child(Box::new(
+            Label::new("Awesome!")
+                .font_size(20.0)
+                .color(UColor::new(1.0, 0.9, 0.3, 1.0))
+        ));
 
-    let panel = Panel::new(Box::new(panel_content))
-        .padding(EdgeInsets::new(15.0, 20.0, 15.0, 20.0))
-        .corner_radius(12.0)
-        .background(UColor::new(0.12, 0.15, 0.22, 0.95))
+    let complex_button = Button::new(complex_content)
+        .solid_color(UColor::new(0.4, 0.2, 0.6, 1.0))
+        .corner_radius(16.0)
+        .border(2.0, white)
+        .padding(EdgeInsets::all(20.0))
+        .on_click(|| println!("✅ Complex button clicked (icon + text)"));
+
+    // ========== 7. Кнопка с обводкой и большим скруглением ==========
+    let border_button = Button::new(
+        Label::new("Bordered")
+            .font_size(18.0)
+            .color(white)
+    )
+    .solid_color(UColor::new(0.15, 0.2, 0.3, 1.0))
+    .border(3.0, UColor::new(1.0, 0.5, 0.2, 1.0))
+    .corner_radius(30.0)
+    .padding(EdgeInsets::all(16.0));
+
+    // ========== 8. Различные расположения иконки и текста внутри кнопки ==========
+    let layout_label = Label::new("🎯 Icon + Text Layouts")
+        .font_size(16.0)
+        .color(UColor::new(0.8, 0.9, 1.0, 1.0))
         .margin(EdgeInsets::all(10.0));
 
-    // === FOOTER ===
-    let footer = Label::new("✅ Render test complete — check batching, scissor, and GPU buffer handling")
-        .font_size(16.0)
-        .color(UColor::new(0.6, 0.7, 0.85, 1.0))
-        .margin(EdgeInsets::new(0.0, 20.0, 10.0, 10.0));
-
-    // === СБОРКА ИЕРАРХИИ ===
-    Container::vertical()
+    // 8.1 Иконка слева, текст справа (горизонтальный, по умолчанию)
+    let left_icon = Container::horizontal()
+        .spacing(10.0)
         .alignment(Alignment::Center)
+        .add_child(Box::new(Image::new(icon_texture_id, 24.0, 24.0)))
+        .add_child(Box::new(Label::new("← Icon").font_size(16.0).color(white)));
+
+    let btn_left_icon = Button::new(left_icon)
+        .solid_color(UColor::new(0.3, 0.4, 0.6, 1.0))
+        .corner_radius(8.0)
+        .padding(EdgeInsets::all(12.0))
+        .on_click(|| println!("Left icon"));
+
+    // 8.2 Текст слева, иконка справа
+    let right_icon = Container::horizontal()
+        .spacing(10.0)
+        .alignment(Alignment::Center)
+        .add_child(Box::new(Label::new("Icon →").font_size(16.0).color(white)))
+        .add_child(Box::new(Image::new(icon_texture_id, 24.0, 24.0)));
+
+    let btn_right_icon = Button::new(right_icon)
+        .solid_color(UColor::new(0.3, 0.5, 0.7, 1.0))
+        .corner_radius(8.0)
+        .padding(EdgeInsets::all(12.0))
+        .on_click(|| println!("Right icon"));
+
+    // 8.3 Иконка сверху, текст снизу (вертикальный)
+    let top_icon = Container::vertical()
+        .spacing(8.0)
+        .alignment(Alignment::Center)
+        .add_child(Box::new(Image::new(icon_texture_id, 32.0, 32.0)))
+        .add_child(Box::new(Label::new("Icon top").font_size(14.0).color(white)));
+
+    let btn_top_icon = Button::new(top_icon)
+        .solid_color(UColor::new(0.4, 0.5, 0.8, 1.0))
+        .corner_radius(12.0)
+        .padding(EdgeInsets::all(16.0))
+        .on_click(|| println!("Top icon"));
+
+    // 8.4 Текст сверху, иконка снизу (вертикальный)
+    let bottom_icon = Container::vertical()
+        .spacing(8.0)
+        .alignment(Alignment::Center)
+        .add_child(Box::new(Label::new("Icon bottom").font_size(14.0).color(white)))
+        .add_child(Box::new(Image::new(icon_texture_id, 32.0, 32.0)));
+
+    let btn_bottom_icon = Button::new(bottom_icon)
+        .solid_color(UColor::new(0.2, 0.6, 0.5, 1.0))
+        .corner_radius(12.0)
+        .padding(EdgeInsets::all(16.0))
+        .on_click(|| println!("Bottom icon"));
+
+    // Горизонтальный ряд для компактного отображения
+    let icon_layouts_row = Container::horizontal()
+        .spacing(15.0)
+        .alignment(Alignment::Center)
+        .add_child(Box::new(btn_left_icon))
+        .add_child(Box::new(btn_right_icon))
+        .add_child(Box::new(btn_top_icon))
+        .add_child(Box::new(btn_bottom_icon));
+        
+        //let image_button = build_image_button_example(bg_texture_id, icon_texture_id);
+        //let tiled_button = build_tiled_image_button_example(bg_texture_id, icon_texture_id);
+
+    // ========== 9. Различные расположения иконки и текста С ФОНОМ-ИЗОБРАЖЕНИЕМ ==========
+    let border_color = UColor::new(1.0, 1.0, 1.0, 0.9);
+    let bg_color = UColor::new(0.3, 0.3, 0.3, 0.9);
+
+    let image_bg_label = Label::new("🖼️ With Image Background")
+        .font_size(16.0)
+        .color(UColor::new(0.8, 0.9, 1.0, 1.0))
+        .margin(EdgeInsets::all(10.0));
+
+    // 9.1 Иконка слева, текст справа
+    let left_icon_img = Container::horizontal()
+        .spacing(10.0)
+        .alignment(Alignment::Center)
+        .add_child(Box::new(Image::new(icon_texture_id, 24.0, 24.0)))
+        .add_child(Box::new(Label::new("← Icon").font_size(16.0).color(white)));
+
+    let btn_left_icon_img = Button::new(left_icon_img)
+        .image(bg_texture_id, BackgroundFit::Stretch, white)
+         .border(2.0, border_color)
+        .corner_radius(8.0)
+        .padding(EdgeInsets::all(12.0))
+        .on_click(|| println!("Left icon with image bg"));
+
+    // 9.2 Текст слева, иконка справа
+    let right_icon_img = Container::horizontal()
+        .spacing(10.0)
+        .alignment(Alignment::Center)
+        .add_child(Box::new(Label::new("Icon →").font_size(16.0).color(white)))
+        .add_child(Box::new(Image::new(icon_texture_id, 24.0, 24.0)));
+
+    let btn_right_icon_img = Button::new(right_icon_img)
+        .image(bg_texture_id, BackgroundFit::Stretch, white)
+         .border(2.0, border_color)
+        .corner_radius(8.0)
+        .padding(EdgeInsets::all(12.0))
+        .on_click(|| println!("Right icon with image bg"));
+
+    // 9.3 Иконка сверху, текст снизу
+    let top_icon_img = Container::vertical()
+        .spacing(8.0)
+        .alignment(Alignment::Center)
+        .add_child(Box::new(Image::new(icon_texture_id, 32.0, 32.0)))
+        .add_child(Box::new(Label::new("Icon top").font_size(14.0).color(white)));
+
+    let btn_top_icon_img = Button::new(top_icon_img)
+        .image(bg_texture_id, BackgroundFit::Stretch, white)
+        .corner_radius(12.0)
+         .border(2.0, border_color)
+        .padding(EdgeInsets::all(16.0))
+        .on_click(|| println!("Top icon with image bg"));
+
+    // 9.4 Текст сверху, иконка снизу
+    let bottom_icon_img = Container::vertical()
+        .spacing(8.0)
+        .alignment(Alignment::Center)
+        .add_child(Box::new(Label::new("Icon bottom").font_size(14.0).color(white)))
+        .add_child(Box::new(Image::new(icon_texture_id, 32.0, 32.0)));
+
+    let btn_bottom_icon_img = Button::new(bottom_icon_img)
+        .image(bg_texture_id, BackgroundFit::Stretch, white)
+        .border(2.0, border_color)
+        .corner_radius(12.0)
+        .padding(EdgeInsets::all(16.0))
+        .on_click(|| println!("Bottom icon with image bg"));
+
+    let combined_button = Button::new(Label::new("Combined"))
+        .solid_color(UColor::new(0.2, 0.4, 0.6, 1.0))   // нижний слой
+        .image(bg_texture_id, BackgroundFit::Cover, bg_color) // верхний слой
+        .border(2.0, border_color)
+        .corner_radius(12.0)
+         .padding(EdgeInsets::all(16.0))
+        .on_click(|| println!("Combined button clicked"));
+
+    // Горизонтальный ряд для кнопок с фоновым изображением
+    let icon_layouts_img_row = Container::horizontal()
+        .spacing(15.0)
+        .alignment(Alignment::Center)
+        .add_child(Box::new(btn_left_icon_img))
+        .add_child(Box::new(btn_right_icon_img))
+        .add_child(Box::new(btn_top_icon_img))
+        .add_child(Box::new(combined_button))
+        .add_child(Box::new(btn_bottom_icon_img));
+    
+    // ========== 10. Комбинированный фон: цвет + полупрозрачное изображение + иконка и текст ==========
+    let composite_label = Label::new("🎨 Composite: Color + PNG Overlay + Icon+Text")
+        .font_size(16.0)
+        .color(UColor::new(0.8, 0.9, 1.0, 1.0))
+        .margin(EdgeInsets::all(10.0));
+
+    // Содержимое: иконка + текст (горизонтально)
+    let content = Container::horizontal()
         .spacing(12.0)
-        .padding(EdgeInsets::new(15.0, 15.0, 15.0, 15.0))
-        .add_child(Box::new(header))
-        .add_child(Box::new(color_buttons))
-        .add_child(Box::new(size_label))
-        .add_child(Box::new(size_buttons))
-        .add_child(Box::new(style_label))
-        .add_child(Box::new(style_buttons))
-        .add_child(Box::new(grid_label))
-        .add_child(Box::new(grid_container))
-        .add_child(Box::new(outlines_label))
-        .add_child(Box::new(outlines_row))
-        .add_child(Box::new(canvas_label))
-        .add_child(Box::new(canvas))
-        .add_child(Box::new(panel_label))
-        .add_child(Box::new(panel))
-        .add_child(Box::new(footer))
+        .alignment(Alignment::Center)
+        .add_child(Box::new(Image::new(icon_texture_id, 32.0, 32.0)))
+        .add_child(Box::new(
+            Label::new("Multi-layer")
+                .font_size(18.0)
+                .color(UColor::new(1.0, 1.0, 1.0, 1.0))
+        ));
+
+    // Кнопка:
+    // 1. Сначала цвет (нижний слой)
+    // 2. Поверх него полупрозрачное PNG (tint с альфой 0.7, чтобы просвечивал цвет)
+    // 3. Затем содержимое (иконка+текст) будет поверх всего
+    let composite_button = Button::new(content)
+        .solid_color(UColor::new(0.2, 0.5, 0.8, 1.0))   // синий фон
+        .image(bg_texture_id, BackgroundFit::Cover, UColor::new(1.0, 1.0, 1.0, 0.7)) // PNG с альфой 70%
+        .border(2.0, UColor::new(1.0, 1.0, 1.0, 0.9))   // белая рамка
+        .corner_radius(16.0)
+        .padding(EdgeInsets::all(20.0))
+        .on_click(|| println!("Composite button clicked"));
+
+    // Альтернативный вариант: PNG поверх, но с другой стратегией заливки
+    let composite_tile_button = Button::new(
+        Container::horizontal()
+            .spacing(12.0)
+            .alignment(Alignment::Center)
+            .add_child(Box::new(Image::new(icon_texture_id, 32.0, 32.0)))
+            .add_child(Box::new(Label::new("Tile overlay").font_size(18.0).color(white)))
+    )
+    .solid_color(UColor::new(1.0,1.0, 1.0, 1.0))      //  фон
+    .image(bg_texture_id, BackgroundFit::Tile { scale: 1.0 }, UColor::new(1.0, 1.0, 1.0, 0.5)) // тайлинг с полупрозрачностью
+    .border(2.0, white)
+    .corner_radius(16.0)
+    .padding(EdgeInsets::all(20.0))
+    .on_click(|| println!("Tile composite button clicked"));
+
+    let composite_row = Container::horizontal()
+        .spacing(20.0)
+        .alignment(Alignment::Center)
+        .add_child(Box::new(composite_button))
+        .add_child(Box::new(composite_tile_button));
+
+    // ========== Сборка в вертикальный контейнер ==========
+    Container::vertical()
+        .spacing(20.0)
+        .alignment(Alignment::Center)
+        .padding(EdgeInsets::all(30.0))
+        //.add_child(Box::new(solid_button))
+        //.add_child(Box::new(stretch_button))
+        //.add_child(Box::new(tile_button))
+        //.add_child(Box::new(cover_button))
+        .add_child(Box::new(canvas_button))
+        .add_child(Box::new(complex_button))
+        .add_child(Box::new(border_button))
+        //.add_child(Box::new(image_button))
+        //.add_child(Box::new(tiled_button))
+        .add_child(Box::new(layout_label))
+        .add_child(Box::new(icon_layouts_row))
+        .add_child(Box::new(image_bg_label))
+        .add_child(Box::new(icon_layouts_img_row))
+        .add_child(Box::new(composite_label))
+        .add_child(Box::new(composite_row))
 }
 
-fn build_test_ui_bg(bg_id: u64, icon_id: u64) -> wgpu_simple_ui::ui::Container {
 
-    // 📌 Заголовки секций
-    let sec1_label = Label::new("1️⃣ Solid Baseline (Цветной фон)").font_size(16.0).color(UColor::new(0.7, 0.8, 1.0, 1.0)).margin(EdgeInsets::all(5.0));
-    let sec2_label = Label::new("2️⃣ BackgroundFit (Растяжение, Черепица, Cover)").font_size(16.0).color(UColor::new(0.7, 0.8, 1.0, 1.0)).margin(EdgeInsets::all(5.0));
-    let sec3_label = Label::new("3️⃣ Transparent PNG Overlay (Цвет + PNG)").font_size(16.0).color(UColor::new(0.7, 0.8, 1.0, 1.0)).margin(EdgeInsets::all(5.0));
-    let sec4_label = Label::new("4️⃣ IconButtons (С оверлеем и без)").font_size(16.0).color(UColor::new(0.7, 0.8, 1.0, 1.0)).margin(EdgeInsets::all(5.0));
-    
-    // Новый заголовок для секции с Canvas
-    let sec5_label = Label::new("5️⃣ Custom Canvas Background (Градиент + Иконка)").font_size(16.0).color(UColor::new(0.7, 0.8, 1.0, 1.0)).margin(EdgeInsets::all(5.0));
+/// Пример: кнопка с фоновой текстурой, иконкой и текстом.
+/// Внутри используется горизонтальный layout (иконка слева, текст справа).
+fn build_image_button_example(bg_texture_id: u64, icon_texture_id: u64) -> impl Widget {
+    use crate::ui::widgets::{Container, Image, Label, Button};
+    use crate::common::types::{BackgroundFit, EdgeInsets, UColor, Size, Alignment};
 
-    // ================= 1️⃣ SOLID BASELINE =================
-    let solid_btn = Button::new("Solid Button")
-        .padding(EdgeInsets::all(12.0))
-        .color(UColor::new(0.2, 0.4, 0.7, 1.0))
-        .corner_radius(8.0)
-        .on_click(|| println!("Solid btn clicked"));
+    // 1. Создаём содержимое: горизонтальная строка (иконка + текст)
+    let content = Container::horizontal()
+        .spacing(12.0)                         // отступ между иконкой и текстом
+        .alignment(Alignment::Center)          // выравнивание по вертикали
+        .add_child(Box::new(Image::new(icon_texture_id, 32.0, 32.0)))
+        .add_child(Box::new(
+            Label::new("Image Button")
+                .font_size(20.0)
+                .color(UColor::new(1.0, 1.0, 1.0, 1.0))
+        ));
 
-    let solid_panel = Panel::new(Box::new(Label::new("Solid Panel").font_size(14.0).color(UColor::new(0.9, 0.9, 0.9, 1.0))))
-        .background(UColor::new(0.15, 0.15, 0.2, 1.0))
+    // 2. Оборачиваем в кнопку с фоновым изображением
+    Button::new(content)
+        .image(bg_texture_id, BackgroundFit::Stretch, UColor::new(1.0, 1.0, 1.0, 1.0))
         .corner_radius(12.0)
-        .padding(EdgeInsets::all(16.0));
+        .padding(EdgeInsets::all(16.0))
+        .on_click(|| println!("Image button clicked"))
+}
 
-    let sec1_row = Container::horizontal()
-        .spacing(10.0)
+/// Пример: кнопка с тайловой текстурой фона, иконка сверху, текст снизу (вертикальный layout)
+fn build_tiled_image_button_example(bg_texture_id: u64, icon_texture_id: u64) -> impl Widget {
+    use crate::ui::widgets::{Container, Image, Label, Button};
+    use crate::common::types::{BackgroundFit, EdgeInsets, UColor, Size, Alignment};
+
+    let content = Container::vertical()
+        .spacing(8.0)
         .alignment(Alignment::Center)
-        .add_child(Box::new(solid_btn))
-        .add_child(Box::new(solid_panel));
+        .add_child(Box::new(Image::new(icon_texture_id, 40.0, 40.0)))
+        .add_child(Box::new(
+            Label::new("Tiled BG")
+                .font_size(18.0)
+                .color(UColor::new(1.0, 1.0, 0.8, 1.0))
+        ));
 
-    // ================= 2️⃣ BACKGROUNDFIT TESTS =================
-    let panel_stretch = Panel::new(Box::new(Label::new("Stretch").font_size(14.0).color(UColor::new(1.0, 1.0, 1.0, 1.0))))
-        .background_texture_overlay(bg_id, BackgroundFit::Stretch, Some(UColor::new(1.0, 1.0, 1.0, 0.8)))
-        .corner_radius(10.0).padding(EdgeInsets::all(20.0));
-
-    let panel_tile = Panel::new(Box::new(Label::new("Tile (0.5x)").font_size(14.0).color(UColor::new(1.0, 1.0, 1.0, 1.0))))
-        .background_texture_overlay(bg_id, BackgroundFit::Tile { scale: 0.5 }, Some(UColor::new(1.0, 1.0, 1.0, 0.9)))
-        .corner_radius(10.0).padding(EdgeInsets::all(20.0));
-
-    let panel_cover = Panel::new(Box::new(Label::new("Cover").font_size(14.0).color(UColor::new(1.0, 1.0, 1.0, 1.0))))
-        .background_texture_overlay(bg_id, BackgroundFit::Cover, None)
-        .corner_radius(10.0).padding(EdgeInsets::all(20.0));
-
-    let sec2_row = Container::horizontal()
-        .spacing(10.0)
-        .alignment(Alignment::Center)
-        .add_child(Box::new(panel_stretch))
-        .add_child(Box::new(panel_tile))
-        .add_child(Box::new(panel_cover));
-
-    // ================= 3️⃣ TRANSPARENT OVERLAY =================
-    let overlay_30 = Panel::new(Box::new(Label::new("Overlay 30%").font_size(14.0).color(UColor::new(1.0, 1.0, 1.0, 1.0))))
-        .background(UColor::new(0.8, 0.1, 0.1, 1.0))
-        .background_texture_overlay(bg_id, BackgroundFit::Stretch, Some(UColor::new(1.0, 1.0, 1.0, 0.3)))
-        .corner_radius(12.0).padding(EdgeInsets::all(16.0));
-
-    let overlay_70 = Panel::new(Box::new(Label::new("Overlay 70%").font_size(14.0).color(UColor::new(1.0, 1.0, 1.0, 1.0))))
-        .background(UColor::new(0.1, 0.8, 0.1, 1.0))
-        .background_texture_overlay(bg_id, BackgroundFit::Fit, Some(UColor::new(1.0, 1.0, 1.0, 0.7)))
-        .corner_radius(12.0).padding(EdgeInsets::all(16.0));
-
-    let sec3_row = Container::horizontal()
-        .spacing(10.0)
-        .alignment(Alignment::Center)
-        .add_child(Box::new(overlay_30))
-        .add_child(Box::new(overlay_70));
-
-    // ================= 4️⃣ ICONBUTTONS =================
-    let icon_plain = IconButton::new("Plain", icon_id, Size::new(20.0, 20.0))
-        .padding(EdgeInsets::new(10.0, 16.0, 10.0, 16.0))
-        .corner_radius(6.0)
-        .color(UColor::new(0.2, 0.25, 0.35, 1.0))
-        .on_click(|| println!("Plain icon clicked"));
-
-    let icon_textured = IconButton::new("With Overlay", icon_id, Size::new(20.0, 20.0))
-        .padding(EdgeInsets::new(10.0, 16.0, 10.0, 16.0))
-        .corner_radius(6.0)
-        .color(UColor::new(0.1, 0.1, 0.2, 1.0))
-        .background_texture_overlay(bg_id, BackgroundFit::Stretch, Some(UColor::new(0.5, 0.8, 1.0, 0.4)))
-        .on_click(|| println!("Textured icon clicked"));
-
-    let sec4_row = Container::horizontal()
-        .spacing(15.0)
-        .alignment(Alignment::Center)
-        .add_child(Box::new(icon_plain))
-        .add_child(Box::new(icon_textured));
-
-// ================= 5️⃣ CUSTOM CANVAS BACKGROUND =================
-
-    let sec5_label = Label::new("5️⃣ CanvasButton + Layout").font_size(16.0).color(UColor::new(0.7, 0.8, 1.0, 1.0)).margin(EdgeInsets::all(5.0));
-
-    let button_width = 180.0;
-    let button_height = 100.0;
-
-    // 1. СОЗДАЕМ LAYOUT ДЛЯ КОНТЕНТА
-    // Вертикальный контейнер: Иконка сверху, Текст снизу
-    let content_layout = Container::vertical()
-        .spacing(8.0)                  // Отступ между иконкой и текстом
-        .alignment(Alignment::Center)  // Центрирование элементов внутри контейнера
-        .add_child(Box::new(Image::new(icon_id, 48.0, 48.0))) // Иконка 48x48
-        .add_child(Box::new(Label::new("Click Me").font_size(16.0).color(UColor::new(1.0, 1.0, 1.0, 1.0))));
-
-    // 2. СОЗДАЕМ КНОПКУ С CANVAS ФОНОМ
-    let canvas_btn = CanvasButton::new(button_width, button_height)
-        // Фон: Темно-синий
-        .add_canvas_item(CanvasItem::Rect {
-            rect: Rect::new(0.0, 0.0, button_width, button_height),
-            color: UColor::new(0.1, 0.15, 0.3, 1.0),
-        })
-        // Градиент: Светлая полоса сверху (имитация градиента)
-        .add_canvas_item(CanvasItem::Rect {
-            rect: Rect::new(0.0, 0.0, button_width, button_height * 0.5),
-            color: UColor::new(0.2, 0.4, 0.9, 0.6),
-        })
-        // Рамка: Белая, скругленная
-        .add_canvas_item(CanvasItem::OutlineRect {
-            rect: Rect::new(0.0, 0.0, button_width, button_height),
-            radius: 15.0,
-            thickness: 2.0,
-            color: UColor::new(1.0, 1.0, 1.0, 1.0),
-        })
-        // ПЕРЕДАЕМ LAYOUT ВНУТРЬ КНОПКИ
-        .content(content_layout)
-        .on_click(|| {
-            println!("✅ CanvasButton clicked! Layout is centered inside.");
-        });
-
-    let sec5_row = Container::horizontal()
-        .spacing(15.0)
-        .alignment(Alignment::Center)
-        .add_child(Box::new(canvas_btn));
-
-
-    // ================= 📦 FINAL ASSEMBLY =================
-    Container::vertical()
-        .alignment(Alignment::Center)
-        .spacing(15.0)
+    Button::new(content)
+        .image(bg_texture_id, BackgroundFit::Tile { scale: 0.5 }, UColor::new(1.0, 1.0, 1.0, 0.9))
+        .corner_radius(8.0)
         .padding(EdgeInsets::all(20.0))
-        .add_child(Box::new(sec1_label))
-        .add_child(Box::new(sec1_row))
-        .add_child(Box::new(sec2_label))
-        .add_child(Box::new(sec2_row))
-        .add_child(Box::new(sec3_label))
-        .add_child(Box::new(sec3_row))
-        .add_child(Box::new(sec4_label))
-        .add_child(Box::new(sec4_row))
-        .add_child(Box::new(sec5_label))
-        .add_child(Box::new(sec5_row))
+        .border(2.0, UColor::new(1.0, 1.0, 1.0, 0.7))
+        .on_click(|| println!("Tiled image button clicked"))
 }
