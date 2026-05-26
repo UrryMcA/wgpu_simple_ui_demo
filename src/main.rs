@@ -4,7 +4,7 @@ mod texture_loader_adapter;
 
 use anyhow::Result;
 use wgpu_simple_ui::{DefaultPrimitives, UiRenderer, 
-    common::types::{Alignment, BackgroundFit, EdgeInsets, Rect, Size, UColor}, 
+    common::{event::DragData, types::{Alignment, BackgroundFit, EdgeInsets, Line, Rect, Size, UColor, Point}}, 
     widgets::{canvas::CanvasItem, *}, *};
 use wgpu_simple_ui_winit::window_event_to_ui_event;
 use std::sync::Arc;
@@ -13,6 +13,7 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::{Window, WindowId},
     application::ApplicationHandler,
+    keyboard::ModifiersState,  // добавлено
 };
 use wgpu::{Surface, SurfaceConfiguration, CurrentSurfaceTexture};
 use device::GraphicsContext;
@@ -25,6 +26,8 @@ struct App {
     gfx: Option<GraphicsContext>,
     config: Option<SurfaceConfiguration>,
     ui_renderer: Option<UiRenderer>,
+    last_cursor_pos: Point,
+    modifiers: ModifiersState,
 }
 
 impl App {
@@ -35,6 +38,8 @@ impl App {
             gfx: None,
             config: None,
             ui_renderer: None,
+            last_cursor_pos: Point::new(0.0, 0.0),
+            modifiers: ModifiersState::empty(),
         }
     }
 
@@ -220,13 +225,19 @@ impl ApplicationHandler for App {
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _window_id: WindowId, event: WindowEvent) {
 
+        // Обновляем позицию курсора
+        if let WindowEvent::CursorMoved { position, .. } = event {
+            self.last_cursor_pos = Point::new(position.x as f32, position.y as f32);
+        }
+        // Обновляем модификаторы (исправлено)
+        if let WindowEvent::ModifiersChanged(mods) = event {
+            self.modifiers = mods.state();
+        }
+
         let renderer: &mut UiRenderer = self.ui_renderer.as_mut().unwrap();
-        let mut tr_event = window_event_to_ui_event(&event);
-        match tr_event {
-            Some(value) =>{
-                renderer.ui_manager().process_event(&value);
-            },
-            None => {},
+        let tr_event = window_event_to_ui_event(&event, self.last_cursor_pos, self.modifiers);
+        if let Some(value) = tr_event {
+            renderer.ui_manager().process_event(&value);
         }
 
         match event {
@@ -263,7 +274,7 @@ fn main() -> Result<()> {
 /// - Колбэк на клик
 /// Тестовый UI, демонстрирующий возможности нового универсального `Button`
 /// Тестовый UI, демонстрирующий возможности нового универсального `Button`
-fn build_test_ui(bg_texture_id: u64, icon_texture_id: u64) -> impl Widget {
+fn build_test_ui_3(bg_texture_id: u64, icon_texture_id: u64) -> impl Widget {
     use crate::common::types::{Rect, Line, UColor, EdgeInsets, Alignment, BackgroundFit, Size};
     use crate::ui::widgets::{Container, Label, Image, Button};
 
@@ -652,4 +663,116 @@ fn build_tiled_image_button_example(bg_texture_id: u64, icon_texture_id: u64) ->
         .padding(EdgeInsets::all(20.0))
         .border(2.0, UColor::new(1.0, 1.0, 1.0, 0.7))
         .on_click(|| println!("Tiled image button clicked"))
+}
+
+use crate::ui::widgets::{Button, Container, Label};
+
+/// Строит тестовый UI, демонстрирующий:
+/// - Обычные кнопки с цветом и изображением
+/// - Композитный фон (цвет + полупрозрачное изображение)
+/// - Реакцию на наведение (hover) – изменение цвета/тинта
+/// - Drag & Drop с подсветкой цели (зелёный цвет) и источника (синий tint)
+/// - Программное изменение состояния через ID (кнопка "Подсветить")
+pub fn build_test_ui(bg_texture_id: u64, icon_texture_id: u64) -> impl Widget {
+    let white = UColor::new(1.0, 1.0, 1.0, 1.0);
+
+    // --- 1. Обычная кнопка с цветом (проверка hover) ---
+    let btn_hover = Button::new(Label::new("Hover me").font_size(18.0).color(white))
+        .solid_color(UColor::new(0.2, 0.5, 0.8, 1.0))
+        .corner_radius(8.0)
+        .padding(EdgeInsets::all(16.0))
+        .with_id(1001)
+        .on_click(|| println!("Hover button clicked"));
+
+    // --- 2. Кнопка с фоновым изображением (проверка hover и drag цели) ---
+    let btn_image = Button::new(Label::new("Image BG").font_size(16.0).color(white))
+        .image(bg_texture_id, BackgroundFit::Cover, UColor::new(1.0, 1.0, 1.0, 0.8))
+        .corner_radius(12.0)
+        .padding(EdgeInsets::all(20.0))
+        .border(2.0, white)
+        .with_id(1002)
+        .on_click(|| println!("Image button clicked"));
+
+    // --- 3. Композитный фон: цвет + полупрозрачное изображение ---
+    let btn_composite = Button::new(Label::new("Composite").font_size(16.0).color(white))
+        .with_id(1003)
+        .solid_color(UColor::new(0.3, 0.2, 0.6, 1.0))
+        .image(bg_texture_id, BackgroundFit::Tile { scale: 0.3 }, UColor::new(1.0, 1.0, 1.0, 0.5))
+        .corner_radius(16.0)
+        .padding(EdgeInsets::all(20.0))
+        .border(2.0, white)
+        .on_click(|| println!("Composite button clicked"));
+
+    // --- 4. Кнопка-источник для drag & drop (можно перетащить) ---
+    let btn_drag_source = Button::new(Label::new("Drag me").font_size(16.0).color(white))
+        .with_id(1004)
+        .solid_color(UColor::new(0.8, 0.3, 0.3, 1.0))
+        .corner_radius(8.0)
+        .padding(EdgeInsets::all(12.0))
+        .drag_data(DragData::Text("Hello from drag source".to_string()))
+        .on_click(|| {
+            println!("Drag source clicked")
+        });
+
+    // --- 5. Кнопка-цель для drag & drop (подсвечивается зелёным) ---
+    let btn_drop_target = Button::new(Label::new("Drop here").font_size(16.0).color(white))
+        .with_id(1005)
+        .solid_color(UColor::new(0.2, 0.5, 0.2, 1.0))
+        .corner_radius(8.0)
+        .padding(EdgeInsets::all(12.0))
+        .can_drop(|data| data.as_text().is_some())
+        .on_drop(|data| {
+            if let Some(text) = data.as_text() {
+                println!("Dropped text: {}", text);
+            }
+        })
+        .on_click(|| println!("Drop target clicked"));
+
+    // --- 6. Кнопка для программного изменения состояния другой кнопки по ID ---
+    let btn_programmatic = Button::new(Label::new("Programmatic highlight (ID 1001)").font_size(14.0).color(white))
+        .with_id(1006)
+        .solid_color(UColor::new(0.4, 0.4, 0.4, 1.0))
+        .corner_radius(8.0)
+        .padding(EdgeInsets::all(12.0))
+        .on_click(|| {
+            // В реальном приложении здесь нужен доступ к UiManager:
+            // ui_manager.with_widget_mut(1001, |widget| {
+            //     let mut state = InteractiveState::default();
+            //     state.hovered = true;
+            //     widget.update_interactive_state(&state);
+            //     true
+            // });
+            println!("Would highlight button 1001");
+        });
+
+    // --- 7. Кнопка с Canvas фоном ---
+    let canvas_items = vec![
+        CanvasItem::Rect { rect: Rect::new(0.0, 0.0, 200.0, 80.0), color: UColor::new(0.1, 0.2, 0.4, 1.0) },
+        CanvasItem::Line { line: Line::new(0.0, 40.0, 200.0, 40.0, 1.5), color: UColor::new(1.0, 1.0, 0.0, 0.5) },
+        CanvasItem::OutlineRect { rect: Rect::new(5.0, 5.0, 190.0, 70.0), radius: 8.0, thickness: 2.0, color: white },
+    ];
+    let btn_canvas = Button::new(Label::new("Canvas BG").font_size(16.0).color(white))
+        .canvas(canvas_items)
+        .corner_radius(8.0)
+        .padding(EdgeInsets::all(16.0))
+        .on_click(|| println!("Canvas button clicked"));
+
+    // --- Сборка ---
+    Container::vertical()
+        .spacing(20.0)
+        .alignment(Alignment::Center)
+        .padding(EdgeInsets::all(30.0))
+        .add_child(Box::new(Label::new("🧪 Test interactive states & drag&drop").font_size(24.0).color(white)))
+        .add_child(Box::new(btn_hover))
+        .add_child(Box::new(btn_image))
+        .add_child(Box::new(btn_composite))
+        .add_child(Box::new(Label::new("📦 Drag & Drop test").font_size(18.0).color(white)))
+        .add_child(Box::new(Container::horizontal().spacing(20.0)
+            .add_child(Box::new(btn_drag_source))
+            .add_child(Box::new(btn_drop_target))
+        ))
+        .add_child(Box::new(Label::new("🎯 Programmatic state change (via ID)").font_size(18.0).color(white)))
+        .add_child(Box::new(btn_programmatic))
+        .add_child(Box::new(Label::new("🖌️ Canvas background").font_size(18.0).color(white)))
+        .add_child(Box::new(btn_canvas))
 }
